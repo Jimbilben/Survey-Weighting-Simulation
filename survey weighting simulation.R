@@ -98,9 +98,9 @@ data_maker <- function(sim = 1, bias = "none") {
     # in reality we'd probably want to ensure smaller caps
     # but this is for demonstrative purposes
     # to just make sure the raking generally works
-    cap <- case_when(bias == "a" ~ 15,
-                     bias == "b" ~ 20,
-                     bias == "c" ~ 25)
+    cap <- case_when(bias == "a" ~ 20,
+                     bias == "b" ~ 25,
+                     bias == "c" ~ 30)
     
     total_raking <- anesrake(inputter = target,
                              data = as.data.frame(generated_data),
@@ -129,9 +129,9 @@ data_maker <- function(sim = 1, bias = "none") {
   
 }
 
-# now we map the function to create lots of simulated data - 250 per type of skew/bias
-sim_data <- map2(.x = 1:1000,
-                 .y = c(rep("none", 250), rep("a", 250), rep("b", 250), rep("c", 250)),
+# now we map the function to create lots of simulated data - 1000 per type of skew/bias
+sim_data <- map2(.x = 1:4000,
+                 .y = c(rep("none", 1000), rep("a", 1000), rep("b", 1000), rep("c", 1000)),
                  .f = data_maker)
 
 # there are a few of the sims where the raking did not fully converge,
@@ -159,8 +159,8 @@ base_reg_weight <- brm(formula = score | weights(weight) ~ 1,
                        prior = reg_prior,
                        chains = 2,
                        cores = 2,
-                       iter = 1200,
-                       warmup = 200,
+                       iter = 1300,
+                       warmup = 300,
                        backend = "cmdstanr",
                        threads = threading(4),
                        seed = 1010)
@@ -173,8 +173,8 @@ base_reg_weight_mod <- brm(formula = score | weights(weight_mod) ~ 1,
                        prior = reg_prior,
                        chains = 2,
                        cores = 2,
-                       iter = 1200,
-                       warmup = 200,
+                       iter = 1300,
+                       warmup = 300,
                        backend = "cmdstanr",
                        threads = threading(4),
                        seed = 1010)
@@ -190,8 +190,8 @@ run_regs <- function(data) {
                             prior = reg_prior,
                             chains = 2,
                             cores = 2,
-                            iter = 800,
-                            warmup = 200,
+                            iter = 1000,
+                            warmup = 250,
                             backend = "cmdstanr",
                             threads = threading(4),
                             seed = 1010)
@@ -205,8 +205,8 @@ run_regs <- function(data) {
                             prior = reg_prior,
                             chains = 2,
                             cores = 2,
-                            iter = 800,
-                            warmup = 200,
+                            iter = 1000,
+                            warmup = 250,
                             backend = "cmdstanr",
                             threads = threading(4),
                             seed = 1010)
@@ -237,13 +237,16 @@ run_regs <- function(data) {
 }
 
 # map the regression function over all of our simulated data sets
+t1_norm <- Sys.time()
 regression_output <- map_dfr(.x = sim_data, .f = run_regs)
+t2_norm <- Sys.time()
 
-regression_output_2 <- regression_output %>% mutate(true_within_2 = true_value < upper & true_value > lower)
+save(regression_output, file = "simulated 1k normal.RData")
+# regression_output_2 <- regression_output %>% mutate(true_within_2 = true_value < upper & true_value > lower)
 
 output_summary <- regression_output %>% 
   group_by(type, bias) %>% 
-  summarise(falls_within = sum(true_within) / 2.5,
+  summarise(falls_within = sum(true_within) / 10,
             point_est = mean(estimate),
             avg_error = mean(error),
             avg_width = mean(width),
